@@ -4,116 +4,109 @@
 
 A base de conhecimento define a estrutura dos dados utilizados pelo FeedbackFlow e como esses dados são disponibilizados ao agente.
 
-O sistema foi desenvolvido para analisar pesquisas de satisfação de alunos de diferentes projetos e ciclos.
+O sistema analisa pesquisas de satisfação de alunos de diferentes projetos e ciclos. O Python é responsável pelo tratamento e pelos cálculos; o agente interpreta as perguntas e utiliza as ferramentas disponíveis para consultar os dados.
 
 ---
 
 # 2. Fontes de Dados
 
-O sistema possui inicialmente cinco planilhas de pesquisa de satisfação.
+O sistema utiliza cinco planilhas de pesquisa de satisfação como fontes de entrada.
 
-Cada planilha representa uma fonte de respostas.
-
-As planilhas podem representar:
+Cada planilha representa uma fonte de respostas. As fontes podem representar:
 
 - diferentes projetos;
 - diferentes ciclos;
 - diferentes turmas;
 - diferentes períodos.
 
-A estrutura das planilhas pode variar entre as fontes.
+A estrutura das planilhas pode variar entre as fontes. Por isso, o pipeline Python padroniza os dados antes de consolidá-los.
 
-Por isso, o pipeline Python realiza a padronização antes da consolidação.
+A base consolidada é a fonte consultada pelas ferramentas analíticas. Os indicadores retornados dependem dos registros que estiverem presentes nessa planilha no momento em que os dados forem carregados.
 
 ---
 
 # 3. Pipeline de Tratamento
 
-O Python será responsável por:
+O pipeline Python é responsável por ler as planilhas de origem, padronizar os dados e consolidá-los.
 
 ```text
-Planilha 1
-     ↓
-Planilha 2
-     ↓
-Planilha 3
-     ↓
-Planilha 4
-     ↓
-Planilha 5
-     ↓
-  Python
+Planilhas de pesquisa (5 fontes)
      ↓
 Leitura dos dados
      ↓
 Padronização dos nomes das colunas
      ↓
-Tratamento dos tipos
+Tratamento dos tipos de dados
      ↓
 Tratamento de valores ausentes
      ↓
-Normalização
-     ↓
-Padronização das categorias
+Normalização dos campos e categorias
      ↓
 Tratamento das datas
-     ↓
-Anonimização
      ↓
 Consolidação
      ↓
 Google Sheets Consolidada
 ```
 
+A estrutura contempla o tratamento e a padronização necessários à consolidação. A anonimização não deve ser considerada garantida sem uma etapa específica implementada e validada para esse fim.
+
 ---
 
 # 4. Google Sheets Consolidada
 
-Após o tratamento, o Python envia os dados para uma Google Sheets consolidada.
+Após o tratamento, os dados são armazenados em uma Google Sheets consolidada. Essa planilha é a fonte de dados utilizada pelas ferramentas analíticas do agente.
 
-Essa planilha passa a ser a principal fonte de dados utilizada pelas ferramentas analíticas do agente.
-
-Estrutura:
+Estrutura geral:
 
 ```text
-Planilhas de Pesquisa
+Planilhas de pesquisa
         ↓
-      Python
+Pipeline Python
         ↓
 Google Sheets Consolidada
         ↓
-     Funções Python
+Funções analíticas Python
         ↓
-      FastAPI
+Agente / FastAPI
         ↓
-      Ollama
+Ollama com Gemma 3 4B compatível com tool calling
+        ↓
+Resposta enviada ao Lovable
 ```
+
+O backend pode utilizar cache temporário dos dados consolidados. Portanto, uma alteração na planilha pode não aparecer imediatamente se o cache ainda estiver válido; a implementação utiliza uma janela de cache de cinco minutos e também possui mecanismo de recarga.
 
 ---
 
 # 5. Campos dos Dados
 
-A base consolidada deve possuir campos padronizados como:
+A base consolidada utiliza nomes internos padronizados, incluindo:
 
+- `datahora_registro`
 - `projeto`
 - `ciclo`
 - `nome_aluno`
 - `turma`
 - `modalidade`
-- `datahora_registro`
 - `csat`
 - `nps`
 - `principal_problema_permanencia`
-- `sugestao_melhoria`
 - `problema_reclamacao`
+- `tipos_melhoria_sugerida`
+- `sugestao_melhoria`
+- `id_planilha_origem`
+- `arquivo_origem`
+- `id_registro`
+- `categoria_problema_reclamacao`
 
-Outros campos podem ser adicionados futuramente.
+Os nomes apresentados são os identificadores internos utilizados pelo tratamento e pelas funções analíticas. Os cabeçalhos visíveis nas planilhas de origem podem ser diferentes e são mapeados para o padrão interno.
 
 ---
 
 # 6. Padronização
 
-O pipeline deve garantir que as cinco fontes utilizem o mesmo padrão.
+O pipeline padroniza os nomes das colunas e os tipos de dados antes da consolidação.
 
 Exemplo:
 
@@ -128,21 +121,19 @@ Fonte 3:
 Projeto/Curso
 ```
 
-Após o tratamento:
+Após o tratamento, os nomes equivalentes são representados pelo campo interno:
 
 ```text
 projeto
 ```
 
-O mesmo princípio deve ser aplicado aos demais campos.
+O mesmo princípio é aplicado aos demais campos. Os campos `ciclo`, `csat` e `nps` são tratados como numéricos; valores textuais ausentes recebem um valor indicativo, enquanto os valores numéricos ausentes permanecem sem valor numérico.
 
 ---
 
 # 7. Tratamento de Categorias
 
-As categorias devem possuir valores padronizados.
-
-Exemplo:
+As categorias são utilizadas para agrupar problemas e reclamações. Entre os valores presentes na base de teste estão:
 
 ```text
 Acesso a equipamentos
@@ -152,83 +143,86 @@ Didática de ensino
 Suporte
 ```
 
-Variações de escrita devem ser normalizadas antes da consolidação.
+As funções podem agrupar os registros a partir dos campos de problema e categoria disponíveis. A padronização de variações de escrita deve ocorrer no tratamento dos dados para que os agrupamentos não sejam distorcidos por diferenças de nomenclatura.
 
 ---
 
 # 8. Indicadores
 
-O agente pode trabalhar com indicadores como:
+O agente pode consultar indicadores calculados pelas funções Python.
 
 ## CSAT
 
-Avaliação de satisfação do aluno.
-
-Escala:
+Indicador de satisfação do aluno, registrado na escala de 1 a 5.
 
 ```text
 1 a 5
 ```
 
+A média de CSAT é calculada a partir dos valores numéricos válidos que atendem aos filtros da consulta.
+
 ---
 
 ## NPS
 
-Indicador de recomendação.
-
-Escala:
+Indicador de recomendação, registrado na escala de 0 a 10.
 
 ```text
 0 a 10
 ```
 
+O NPS é tratado como um indicador distinto da nota individual de recomendação. A forma de cálculo do indicador NPS deve seguir a implementação da ferramenta correspondente; não deve ser inferida apenas a partir da média das notas.
+
 ---
 
 # 9. Ferramentas do Agente
 
-## calcular_metricas()
+As ferramentas analíticas são executadas em Python. O modelo pode selecionar uma ferramenta e fornecer seus argumentos, mas os cálculos são realizados pelo código.
 
-Retorna indicadores agregados.
+## `calcular_metricas()`
 
-Exemplo:
+Retorna indicadores agregados, como total de respostas, CSAT médio, NPS médio e categoria mais frequente do principal problema para permanência, conforme os filtros aplicados.
+
+Exemplo ilustrativo de estrutura de resultado:
 
 ```json
 {
   "projeto": "Projeto A",
   "ciclo": 2,
   "total_respostas": 120,
-  "csat_medio": 4.1,
-  "nps": 52
+  "csat_medio": 4.1
 }
 ```
 
+Os valores desse exemplo são apenas ilustrativos, não representam necessariamente os dados atuais da planilha.
+
 ---
 
-## comparar_ciclos()
+## `comparar_ciclos()`
 
-Compara ciclos de um mesmo projeto.
+Compara indicadores entre ciclos de um mesmo projeto. A comparação deve considerar o total de respostas de cada ciclo, pois tamanhos de amostra diferentes afetam a interpretação dos resultados.
 
-Exemplo:
+Exemplo de estrutura:
 
 ```json
 {
   "projeto": "Projeto A",
   "ciclo_1": {
-    "csat": 3.8,
-    "nps": 41
+    "csat": 3.8
   },
   "ciclo_2": {
-    "csat": 4.1,
-    "nps": 52
+    "csat": 4.1
   }
 }
 ```
 
+Os valores são ilustrativos.
+
 ---
 
-## cruzar_variaveis()
+## `cruzar_variaveis()`
 
-Realiza cruzamentos entre variáveis.
+Realiza cruzamentos entre variáveis para observar como as respostas se distribuem entre grupos.
 
 Exemplo:
 
@@ -240,9 +234,9 @@ Principal problema para permanência
 
 ---
 
-## correlacionar_numericas()
+## `correlacionar_numericas()`
 
-Analisa a relação entre variáveis numéricas.
+Analisa a associação entre variáveis numéricas.
 
 Exemplo:
 
@@ -250,11 +244,26 @@ Exemplo:
 CSAT × NPS
 ```
 
+Correlação indica associação estatística e, por si só, não demonstra causalidade.
+
 ---
 
-## top_reclamacoes_categoria()
+## `top_categorias_problemas()`
 
-Identifica reclamações relacionadas a uma categoria.
+Identifica as categorias de problemas mais frequentes, permitindo observar quais temas aparecem mais nos registros.
+
+Exemplo:
+
+```text
+Categorias de problemas
+→ quantidade de registros por categoria
+```
+
+---
+
+## `comentarios_por_categoria()`
+
+Recupera ou organiza comentários associados a uma categoria de problema ou reclamação, de acordo com os filtros aceitos pela ferramenta.
 
 Exemplo:
 
@@ -267,28 +276,30 @@ Plataforma utilizada
 
 # 10. Fluxo de Consulta
 
-Quando o usuário faz uma pergunta:
+Quando o usuário faz uma pergunta, o sistema pode seguir um fluxo com chamada de ferramenta ou tratar diretamente algumas intenções reconhecidas pelo backend.
+
+Fluxo com ferramenta:
 
 ```text
 Usuário
    ↓
 Lovable
    ↓
-FastAPI
+FastAPI (/chat)
    ↓
-Ollama
+Agente Python
    ↓
-Tool Calling
+Ollama / Gemma 3 compatível com tool calling
    ↓
-FastAPI
+Seleção da ferramenta e argumentos
    ↓
-Função Python
+Função analítica Python
    ↓
-Google Sheets Consolidada
+Google Sheets Consolidada / dados carregados
    ↓
-Resultado
+Resultado estruturado
    ↓
-Ollama
+Agente interpreta e prepara a resposta, quando necessário
    ↓
 FastAPI
    ↓
@@ -296,6 +307,10 @@ Lovable
    ↓
 Usuário
 ```
+
+Para algumas perguntas diretas, o backend pode identificar a intenção e executar o caminho adequado sem exigir todas as etapas de tool calling. Quando o resultado de uma ferramenta já está estruturado, o backend também pode formatá-lo diretamente, evitando uma chamada adicional ao modelo.
+
+Perguntas que exigem informações externas em tempo real, como previsão do tempo, não devem receber respostas inventadas se o agente não tiver uma ferramenta ou fonte capaz de consultá-las.
 
 ---
 
@@ -303,35 +318,37 @@ Usuário
 
 O LLM não é responsável por:
 
-- armazenar dados;
-- limpar dados;
-- normalizar dados;
-- calcular métricas;
+- armazenar os dados;
+- limpar ou consolidar as planilhas;
+- normalizar os registros;
+- realizar os cálculos oficiais dos indicadores;
 - alterar a planilha;
 - excluir registros.
 
 O LLM é responsável por:
 
-- interpretar perguntas;
+- interpretar a pergunta;
 - identificar a intenção;
-- escolher ferramentas;
-- fornecer argumentos;
-- interpretar resultados;
-- gerar respostas em linguagem natural.
+- selecionar ferramentas quando necessário;
+- fornecer argumentos para as ferramentas;
+- interpretar os resultados retornados;
+- redigir respostas em linguagem natural quando necessário.
+
+Os cálculos e filtros analíticos devem permanecer nas funções Python. A resposta deve refletir os resultados retornados pelas ferramentas, sem inventar dados ausentes.
 
 ---
 
 # 12. Fonte de Verdade
 
-A fonte de dados do agente é:
+A fonte de dados utilizada pelo agente é:
 
 ```text
 Google Sheets Consolidada
 ```
 
-Porém, o Ollama não acessa essa planilha diretamente.
+O Ollama não acessa a planilha diretamente. A leitura e os cálculos ocorrem por meio das funções Python executadas no backend.
 
-A consulta ocorre através das funções Python controladas pela API.
+Como o backend pode manter os dados em cache por até cinco minutos, a resposta pode refletir a última carga válida, e não necessariamente uma alteração feita segundos antes na planilha.
 
 ---
 
@@ -339,9 +356,7 @@ A consulta ocorre através das funções Python controladas pela API.
 
 A Google Sheets Consolidada não deve ser exposta diretamente ao usuário final.
 
-As credenciais utilizadas para acesso à planilha devem permanecer no backend.
-
-O Lovable não deve receber:
+As credenciais de acesso à planilha devem permanecer no backend. O Lovable não deve receber:
 
 - credenciais;
 - tokens;
@@ -349,24 +364,26 @@ O Lovable não deve receber:
 - credenciais do Google;
 - informações internas da infraestrutura.
 
+A API disponibiliza o endpoint de conversa `/chat`; a documentação e os recursos de diagnóstico do backend devem ser usados de acordo com a configuração do ambiente. A URL pública do ngrok é um meio de acesso de desenvolvimento e pode mudar quando o túnel é reiniciado.
+
 ---
 
 # 14. Princípio Central
 
 ```text
-Planilhas
+Planilhas de pesquisa
     ↓
-Python
+Pipeline Python
     ↓
-Tratamento
+Tratamento e consolidação
     ↓
 Google Sheets Consolidada
     ↓
-Funções Python
+Funções analíticas Python
     ↓
-FastAPI
+Agente / FastAPI
     ↓
-Ollama
+Ollama com Gemma 3 compatível com tool calling
     ↓
 FastAPI
     ↓
@@ -375,4 +392,4 @@ Lovable
 Usuário
 ```
 
-A separação de responsabilidades deve ser preservada durante toda a evolução do projeto.
+A separação de responsabilidades deve ser preservada durante toda a evolução do projeto: os dados são tratados e calculados pelo Python, o modelo interpreta as perguntas e a API coordena a comunicação entre o frontend e o agente.
