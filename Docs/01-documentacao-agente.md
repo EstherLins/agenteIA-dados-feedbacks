@@ -34,7 +34,7 @@ Isso pode gerar:
 
 # 3. Solução
 
-O sistema utiliza um pipeline Python para transformar as três planilhas de pesquisa em uma única base consolidada.
+O sistema utiliza um pipeline Python para transformar cinco planilhas de pesquisa em uma única base consolidada.
 
 O fluxo é:
 
@@ -134,8 +134,9 @@ Google Sheets Consolidada
 ┌───────────────────────┐
 │        OLLAMA         │
 │                       │
+│ • Gemma 3 4B          │
 │ • Interpretação       │
-│ • Tool Calling        │
+│ • Native Tool Calling │
 │ • Geração de resposta │
 └───────────┬───────────┘
             │
@@ -166,7 +167,7 @@ Google Sheets Consolidada
 
 Responsável por:
 
-- ler as três planilhas;
+- ler as cinco planilhas;
 - tratar os dados;
 - normalizar;
 - padronizar;
@@ -217,12 +218,17 @@ Responsável por:
 
 Responsável por:
 
-- interpretar a pergunta;
-- identificar a intenção;
-- selecionar ferramentas;
-- solicitar os parâmetros;
-- interpretar os resultados;
-- gerar a resposta final.
+- interpretar perguntas;
+- identificar intenções;
+- realizar **native tool calling** quando necessário;
+- selecionar as ferramentas disponíveis;
+- enviar os argumentos das ferramentas;
+- interpretar os resultados retornados pelo Python;
+- gerar respostas em linguagem natural.
+
+O modelo utilizado atualmente é o **Gemma 3 4B com suporte a ferramentas**, executado localmente pelo **Ollama**.
+
+Para algumas perguntas simples e objetivas, o agente Python possui uma rota direta de intenção antes da chamada ao LLM. Isso reduz a latência sem substituir o native tool calling para perguntas que exigem interpretação do modelo.
 
 ---
 
@@ -262,11 +268,15 @@ A FastAPI recebe e valida a solicitação.
 
 ### Etapa 4
 
-A pergunta é enviada ao Ollama.
+A pergunta passa pelo agente Python, que verifica se existe uma intenção simples que pode ser resolvida diretamente.
 
 ### Etapa 5
 
-O Ollama identifica a ferramenta necessária.
+Quando a pergunta exige interpretação do LLM, ela é enviada ao **Gemma 3 4B pelo Ollama**, utilizando native tool calling.
+
+### Etapa 6
+
+O modelo identifica a ferramenta necessária e fornece os argumentos.
 
 Exemplo:
 
@@ -277,17 +287,17 @@ calcular_metricas(
 )
 ```
 
-### Etapa 6
-
-A FastAPI valida os parâmetros.
-
 ### Etapa 7
 
-A função Python consulta a Google Sheets consolidada.
+A função Python recebe a chamada da ferramenta e valida seus argumentos.
 
 ### Etapa 8
 
-A função retorna o resultado.
+A ferramenta consulta a Google Sheets consolidada.
+
+### Etapa 9
+
+A função retorna o resultado calculado pelo Python.
 
 Exemplo:
 
@@ -301,23 +311,25 @@ Exemplo:
 }
 ```
 
-### Etapa 9
-
-O resultado retorna para o Ollama.
-
 ### Etapa 10
 
-O Ollama gera:
+Quando necessário, o resultado retorna ao Gemma para geração da resposta em linguagem natural.
 
-> No Projeto A, Ciclo 2, o principal problema identificado foi a Plataforma utilizada, representando 38% dos registros analisados.
+Para uma única ferramenta estruturada, o agente pode formatar a resposta diretamente em Python, evitando uma segunda chamada ao LLM.
 
 ### Etapa 11
 
-A FastAPI envia a resposta ao Lovable.
+O agente gera a resposta:
+
+> No Projeto A, Ciclo 2, o principal problema identificado foi a Plataforma utilizada, representando 38% dos registros analisados.
 
 ### Etapa 12
 
-O Lovable apresenta a resposta.
+A FastAPI retorna a resposta para o Lovable.
+
+### Etapa 13
+
+O Lovable apresenta a resposta ao usuário.
 
 ---
 
@@ -353,6 +365,20 @@ Resposta:
 ---
 
 # 8. Segurança
+
+## Tratamento de perguntas fora do escopo
+
+O agente possui validação para perguntas que não pertencem ao domínio de análise de feedbacks.
+
+Exemplo:
+
+> "Qual é a previsão do tempo para Fortaleza hoje?"
+
+Nesse caso, o agente não inventa uma previsão. Ele informa que não possui acesso a ferramentas de dados meteorológicos em tempo real.
+
+Uma resposta textual válida, mesmo sem utilização de ferramentas, é considerada uma resposta normal pelo backend.
+
+
 
 ## Lovable
 
@@ -434,6 +460,81 @@ Regras:
 10. Respeitar o escopo das ferramentas.
 
 ---
+
+# 11. Modelo e Execução Local
+
+O LLM utilizado atualmente é o **Gemma 3 4B com suporte a ferramentas**, executado localmente por meio do **Ollama**.
+
+A execução local permite desenvolver e testar o agente sem depender de uma API paga de LLM para cada consulta. A principal limitação observada é a latência, especialmente quando o modelo é executado utilizando CPU.
+
+Durante os testes, uma chamada ao Ollama chegou a aproximadamente **162,17 segundos**. Essa latência está relacionada principalmente à inferência local e aos recursos de hardware disponíveis na máquina de desenvolvimento.
+
+Para reduzir esse impacto, foram implementadas otimizações como:
+
+- cache dos dados consolidados;
+- retorno direto para ferramentas estruturadas quando possível;
+- detecção direta de algumas intenções simples;
+- redução de chamadas desnecessárias ao LLM;
+- uso de `keep_alive` no Ollama.
+
+# 12. Ferramentas Disponíveis
+
+Atualmente, o agente possui seis ferramentas principais:
+
+1. `calcular_metricas` — total de respostas, CSAT médio, NPS médio e categorias;
+2. `comparar_ciclos` — comparação dos resultados entre ciclos;
+3. `cruzar_variaveis` — cruzamento entre variáveis permitidas;
+4. `correlacionar_numericas` — correlação entre CSAT e NPS;
+5. `top_categorias_problemas` — principais categorias de problemas;
+6. `comentarios_por_categoria` — comentários associados a uma categoria.
+
+# 13. Dados Utilizados nos Testes
+
+A base consolidada utilizada nos testes possui:
+
+- **244 registros**;
+- Projetos: **Projeto 1, Projeto 2 e Projeto 4**;
+- Ciclos: **1 e 2**;
+- CSAT em escala de **1 a 5**;
+- NPS em escala de **0 a 10**.
+
+# 14. Endpoint e Integração
+
+O endpoint principal é:
+
+```http
+POST /chat
+```
+
+Formato de requisição:
+
+```json
+{
+  "mensagem": "Qual é o total de respostas?"
+}
+```
+
+Formato de resposta com ferramenta:
+
+```json
+{
+  "resposta": "A base possui 244 respostas.",
+  "ferramentas_utilizadas": [
+    "calcular_metricas"
+  ]
+}
+```
+
+O backend também pode retornar uma resposta válida sem ferramentas:
+
+```json
+{
+  "resposta": "Eu não tenho acesso a ferramentas para consultar dados em tempo real.",
+  "ferramentas_utilizadas": []
+}
+```
+
+Uma lista vazia em `ferramentas_utilizadas` não significa erro: a resposta pode ter sido produzida sem utilizar uma ferramenta.
 
 # 15. Princípio Central
 
