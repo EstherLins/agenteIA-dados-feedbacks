@@ -152,14 +152,6 @@ Esse teste confirmou o comportamento de segurança esperado: o agente não inven
 - [x] Respostas sem invenção de dados.
 - [x] Integração entre agente, API e frontend.
 
-### O que pode melhorar:
-
-- [ ] Reduzir a latência das respostas do modelo.
-- [ ] Avaliar alternativas para melhorar o desempenho da inferência do Gemma em CPU.
-- [ ] Ampliar a quantidade e a variedade de cenários de teste.
-- [ ] Monitorar erros, tempos de resposta e falhas de ferramentas.
-- [ ] Repetir os testes após alterações no prompt, no modelo, nas ferramentas ou na base consolidada.
-
 ---
 
 ## Métricas Avançadas
