@@ -3,7 +3,7 @@
 
 ## Como Avaliar seu Agente
 
-A avaliação do **Agente de Análise de Feedbacks** foi realizada por meio de testes estruturados, considerando perguntas relacionadas aos dados consolidados das pesquisas de satisfação e também perguntas fora do escopo do agente.
+A avaliação do **Agente de Análise de Feedbacks (FeedbackFlow)** foi realizada por meio de testes estruturados, considerando perguntas sobre os dados consolidados das pesquisas de satisfação e perguntas fora do escopo. A arquitetura inclui um backend Python com FastAPI, ferramentas analíticas determinísticas e execução local do Gemma 3 4B por meio do Ollama, com suporte a chamadas de ferramentas.
 
 Os testes verificaram:
 - assertividade;
@@ -19,12 +19,12 @@ Os testes verificaram:
 
 | Métrica | O que avalia | Resultado dos testes |
 |---------|--------------|----------------------|
-| **Assertividade** | O agente respondeu o que foi perguntado usando os dados corretos da base? | **Aprovado** — os valores retornados foram conferidos com a base consolidada. |
-| **Segurança** | O agente evitou inventar informações quando não possuía uma ferramenta ou dado adequado? | **Aprovado** — em perguntas fora do escopo, informou que não possuía acesso à informação solicitada. |
-| **Coerência** | A resposta é compatível com a pergunta e com os dados analisados? | **Aprovado** — as respostas apresentaram os valores calculados e contextualizaram os resultados. |
+| **Assertividade** | O agente respondeu ao que foi perguntado usando os dados corretos da base? | **Aprovado nos cenários documentados** — os valores registrados nos testes foram conferidos com a base consolidada. |
+| **Segurança** | O agente evitou inventar informações quando não possuía ferramenta ou dado adequado? | **Aprovado no cenário fora do escopo documentado** — informou que não tinha ferramenta para consultar a informação em tempo real. |
+| **Coerência** | A resposta é compatível com a pergunta e com os dados analisados? | **Aprovado nos cenários documentados** — as respostas apresentaram valores calculados e contexto compatível com as consultas testadas. |
 
 > [!NOTE]
-> Os testes foram realizados utilizando uma base consolidada de **244 registros** de pesquisas de satisfação.
+> Os resultados e números apresentados neste documento correspondem à base consolidada de **244 registros** utilizada nos testes documentados. Eles não devem ser tratados como valores atuais caso a base seja atualizada.
 
 ---
 
@@ -60,6 +60,8 @@ Os testes verificaram:
 - **Resposta esperada:** Retornar somente as três categorias mais frequentes.
 - **Resultado:** [x] Correto  [ ] Incorreto
 - **Status:** Aprovado
+
+> O documento original não registra os nomes e as frequências retornadas nesse teste; por isso, eles não são inferidos aqui.
 
 ### Teste 5: Cruzamento entre CSAT e ciclo
 
@@ -100,7 +102,7 @@ Os testes verificaram:
 - **Correlação obtida:** **-0,013**
 - **Registros considerados:** **244**
 
-A correlação linear observada é negativa e praticamente inexistente, indicando uma associação linear muito próxima de zero.
+A correlação linear observada é negativa e muito próxima de zero, indicando ausência de associação linear relevante nesse conjunto de registros. Esse resultado não demonstra causalidade.
 
 > Correlação não demonstra relação de causa e efeito entre CSAT e NPS.
 
@@ -153,9 +155,10 @@ Esse teste confirmou o comportamento de segurança esperado: o agente não inven
 ### O que pode melhorar:
 
 - [ ] Reduzir a latência das respostas do modelo.
-- [ ] Melhorar o desempenho da inferência do Gemma em CPU.
-- [ ] Ampliar a quantidade de cenários de teste.
-- [ ] Monitorar continuamente erros e tempos de resposta.
+- [ ] Avaliar alternativas para melhorar o desempenho da inferência do Gemma em CPU.
+- [ ] Ampliar a quantidade e a variedade de cenários de teste.
+- [ ] Monitorar erros, tempos de resposta e falhas de ferramentas.
+- [ ] Repetir os testes após alterações no prompt, no modelo, nas ferramentas ou na base consolidada.
 
 ---
 
@@ -163,11 +166,11 @@ Esse teste confirmou o comportamento de segurança esperado: o agente não inven
 
 ### Latência
 
-Durante os testes, foram observados tempos elevados de inferência, chegando a aproximadamente 162 segundos em uma chamada. Esse comportamento está relacionado principalmente à execução local do LLM Gemma 3 4B, utilizando os recursos computacionais disponíveis na máquina de desenvolvimento, com processamento realizado pela CPU. A execução local foi adotada para utilizar um LLM gratuito, reduzir dependência de APIs pagas e permitir o desenvolvimento e testes do agente localmente.
+Durante os testes documentados, foi observado um tempo de inferência de aproximadamente 162 segundos em uma chamada. O modelo é executado localmente por meio do Ollama, e a medição foi feita no ambiente de desenvolvimento com processamento pela CPU. Esse tempo é uma observação de um teste específico, não uma média nem uma garantia de latência em todas as consultas. A execução local reduz a dependência de APIs de LLM pagas, mas o desempenho varia conforme o hardware, o tamanho da entrada e a complexidade da consulta.
 
 ### Ferramentas
 
-O agente utiliza ferramentas específicas para consultar e analisar a base:
+O backend disponibiliza ferramentas específicas para consultar e analisar a base. A lista abaixo reflete os nomes registrados na documentação do projeto; a disponibilidade efetiva depende da configuração executada:
 
 - `calcular_metricas`
 - `comparar_ciclos`
@@ -186,8 +189,8 @@ O agente utiliza ferramentas específicas para consultar e analisar a base:
 
 ### Conclusão
 
-Os testes indicaram que o agente consegue consultar a base de feedbacks, utilizar as ferramentas de análise e apresentar resultados coerentes com os dados disponíveis.
+Nos cenários registrados neste documento, o agente consultou a base de feedbacks, utilizou as ferramentas de análise e apresentou resultados coerentes com os dados disponíveis.
 
-O comportamento de segurança também foi validado: diante de uma pergunta fora do escopo, o agente não inventou uma resposta.
+O comportamento fora do escopo também foi validado no teste documentado: diante de uma pergunta sobre previsão do tempo em tempo real, o agente informou a limitação sem inventar uma resposta.
 
-O principal ponto técnico identificado durante a avaliação foi a **latência da inferência do modelo em CPU**, sendo esse o principal aspecto a ser aprimorado em futuras versões.
+O principal ponto técnico observado foi a **latência da inferência do modelo em CPU**. Para manter os resultados confiáveis, recomenda-se ampliar a suíte de testes e repetir a validação sempre que houver mudanças no modelo, no prompt, nas ferramentas ou nos dados.
