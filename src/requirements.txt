@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+pandas
+gspread
+google-auth
+google-api-python-client
+openpyxl
+requests
+pydantic
