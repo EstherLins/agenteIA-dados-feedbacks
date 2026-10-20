@@ -308,13 +308,3 @@ O modelo roda localmente, então o tempo depende do hardware e da complexidade d
 ### Os números não refletem a planilha atualizada
 
 O cache dura cinco minutos. Aguarde sua expiração ou use a rotina de recarga existente no código, se aplicável. Confirme também o ID da planilha e o nome da aba configurados.
-
-## Melhorias futuras
-
-- Ampliar testes automatizados para perguntas dentro e fora do escopo.
-- Tornar mais robusta a decisão entre responder, chamar uma ferramenta ou recusar uma pergunta.
-- Melhorar o registro de erros e tempos de resposta.
-- Implementar autenticação e restringir CORS antes de uma implantação pública.
-- Documentar e automatizar a execução do pipeline conforme os módulos realmente disponíveis.
-- Criar testes de integração entre interface, API, modelo e Google Sheets.
-- Avaliar a hospedagem da API em servidor e a integração com um modelo de IA mais avançado, considerando segurança, custos e desempenho.
