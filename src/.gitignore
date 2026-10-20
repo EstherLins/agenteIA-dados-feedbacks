@@ -1,0 +1,22 @@
+# Ambiente virtual
+.venv/
+venv/
+
+# Variáveis de ambiente
+.env
+
+# Credenciais Google
+*.json
+credentials/
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# VS Code
+.vscode/
+
+# Sistema
+.DS_Store
+Thumbs.db
