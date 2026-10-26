@@ -16,7 +16,7 @@ from Agente import ferramentas
 OLLAMA_KEEP_ALIVE = "10m"
 
 # Quantidade máxima de tokens para tool calling.
-MAX_TOKENS_FERRAMENTA = 64
+MAX_TOKENS_FERRAMENTA = 300
 
 # Quantidade máxima de tokens para resposta textual.
 MAX_TOKENS_RESPOSTA = 120
@@ -70,7 +70,6 @@ def _normalizar_texto(texto):
 # ============================================================
 # DETECÇÃO DE FORA DO ESCOPO
 # ============================================================
-
 
 def _detectar_fora_escopo(pergunta):
     texto = _normalizar_texto(pergunta)
@@ -135,17 +134,16 @@ def _detectar_fora_escopo(pergunta):
     return None, None
 
 
-
 # ============================================================
 # DETECÇÃO DIRETA DE INTENÇÃO
 # ============================================================
 
 def _detectar_intencao_direta(pergunta):
     """
-    Detecta perguntas muito claras que podem ser encaminhadas
+    Detecta perguntas claras que podem ser encaminhadas
     diretamente para uma ferramenta Python.
 
-    Isso evita gastar ~2 minutos com o Gemma apenas para decidir
+    Isso evita gastar tempo com o modelo para decidir
     qual ferramenta utilizar.
     """
 
@@ -166,8 +164,10 @@ def _detectar_intencao_direta(pergunta):
         "media de nps",
     ]
 
-    if any(indicador in texto for indicador in indicadores_metricas):
-
+    if any(
+        indicador in texto
+        for indicador in indicadores_metricas
+    ):
         argumentos = {}
 
         # Projeto
@@ -187,7 +187,9 @@ def _detectar_intencao_direta(pergunta):
         )
 
         if match_ciclo:
-            argumentos["ciclo"] = int(match_ciclo.group(1))
+            argumentos["ciclo"] = int(
+                match_ciclo.group(1)
+            )
 
         return "calcular_metricas", argumentos
 
@@ -197,12 +199,13 @@ def _detectar_intencao_direta(pergunta):
 
     palavras_correlacao = [
         "correlacao",
-        "correlação",
         "relacao entre csat e nps",
-        "relação entre csat e nps",
     ]
 
-    if any(palavra in texto for palavra in palavras_correlacao):
+    if any(
+        palavra in texto
+        for palavra in palavras_correlacao
+    ):
         return (
             "correlacionar_numericas",
             {
@@ -219,7 +222,6 @@ def _detectar_intencao_direta(pergunta):
         "comparar os ciclos" in texto
         or "compare os ciclos" in texto
         or "comparacao entre ciclos" in texto
-        or "comparação entre ciclos" in texto
     ):
         match_projeto = re.search(
             r"\bprojeto\s+([a-z0-9]+)\b",
@@ -236,7 +238,6 @@ def _detectar_intencao_direta(pergunta):
                 }
             )
 
-    
     # --------------------------------------------------------
     # TOP CATEGORIAS DE PROBLEMAS
     # --------------------------------------------------------
@@ -252,8 +253,10 @@ def _detectar_intencao_direta(pergunta):
         "top categorias",
     ]
 
-    if any(indicador in texto for indicador in indicadores_top):
-
+    if any(
+        indicador in texto
+        for indicador in indicadores_top
+    ):
         argumentos = {}
 
         limite = _detectar_limite(pergunta)
@@ -289,8 +292,29 @@ def _detectar_intencao_direta(pergunta):
             argumentos
         )
 
-    return None, None
+    # --------------------------------------------------------
+    # PERGUNTAS SOBRE AS CAPACIDADES DO AGENTE
+    # --------------------------------------------------------
 
+    mensagem_normalizada = _normalizar_texto(pergunta)
+    mensagem_normalizada = mensagem_normalizada.rstrip(
+        "?! ."
+    )
+
+    perguntas_capacidades = [
+        "o que voce faz",
+        "o que voce pode fazer",
+        "quais sao suas funcionalidades",
+        "quais sao suas capacidades",
+        "como voce pode ajudar",
+        "quais analises voce faz",
+        "que tipo de analise voce faz",
+    ]
+
+    if mensagem_normalizada in perguntas_capacidades:
+        return "resposta_capacidades", None
+
+    return None, None
 
 
 # ============================================================
@@ -515,14 +539,10 @@ def _resposta_calcular_metricas(resultado):
     contexto = []
 
     if projeto:
-        contexto.append(
-            f"projeto {projeto}"
-        )
+        contexto.append(f"projeto {projeto}")
 
     if ciclo is not None:
-        contexto.append(
-            f"ciclo {ciclo}"
-        )
+        contexto.append(f"ciclo {ciclo}")
 
     if contexto:
         partes.append(
@@ -530,7 +550,6 @@ def _resposta_calcular_metricas(resultado):
             f"foram encontradas "
             f"{resultado.get('total_respostas', 0)} respostas."
         )
-
     else:
         partes.append(
             f"Foram encontradas "
@@ -594,7 +613,7 @@ def _resposta_correlacao(resultado):
     else:
         direcao = "nula"
 
-    resposta = (
+    return (
         f"A correlação entre CSAT e NPS foi de "
         f"{_numero_pt(valor, 3)}, considerando "
         f"{registros} respostas. "
@@ -603,8 +622,6 @@ def _resposta_correlacao(resultado):
         "A correlação mostra associação entre as variáveis, "
         "mas não demonstra relação de causa e efeito."
     )
-
-    return resposta
 
 
 # ============================================================
@@ -617,7 +634,6 @@ def _resposta_comparar_ciclos(resultado):
         return resultado["erro"]
 
     projeto = resultado.get("projeto")
-
     ciclos = {}
 
     for chave, valor in resultado.items():
@@ -644,7 +660,6 @@ def _resposta_comparar_ciclos(resultado):
     for chave in sorted(ciclos.keys()):
 
         dados = ciclos[chave]
-
         numero = chave.replace("ciclo_", "")
 
         texto = (
@@ -694,20 +709,10 @@ def _resposta_cruzamento(resultado):
             "tipo de melhoria sugerida",
     }
 
-    nome_a = nomes.get(
-        variavel_a,
-        variavel_a
-    )
+    nome_a = nomes.get(variavel_a, variavel_a)
+    nome_b = nomes.get(variavel_b, variavel_b)
 
-    nome_b = nomes.get(
-        variavel_b,
-        variavel_b
-    )
-
-    linhas = resultado.get(
-        "resultado",
-        []
-    )
+    linhas = resultado.get("resultado", [])
 
     if not linhas:
         return (
@@ -726,21 +731,13 @@ def _resposta_cruzamento(resultado):
 
         valor_a = linha.get(variavel_a)
         valor_b = linha.get(variavel_b)
-        quantidade = linha.get(
-            "quantidade",
-            0
-        )
+        quantidade = linha.get("quantidade", 0)
 
-        grupos.setdefault(
-            valor_a,
-            []
-        ).append(
+        grupos.setdefault(valor_a, []).append(
             (valor_b, quantidade)
         )
 
-    grupos_itens = list(
-        grupos.items()
-    )[:5]
+    grupos_itens = list(grupos.items())[:5]
 
     for valor_a, itens in grupos_itens:
 
@@ -750,13 +747,10 @@ def _resposta_cruzamento(resultado):
             reverse=True
         )[:5]
 
-        detalhes = []
-
-        for valor_b, quantidade in itens:
-
-            detalhes.append(
-                f"{valor_b}: {quantidade}"
-            )
+        detalhes = [
+            f"{valor_b}: {quantidade}"
+            for valor_b, quantidade in itens
+        ]
 
         partes.append(
             f"Para {nome_a} = {valor_a}, "
@@ -786,17 +780,12 @@ def _resposta_top_categorias(
     if "erro" in resultado:
         return resultado["erro"]
 
-    categorias = resultado.get(
-        "categorias",
-        []
-    )
+    categorias = resultado.get("categorias", [])
 
     if not categorias:
         return "Não foram encontradas categorias."
 
-    limite = _detectar_limite(
-        pergunta_original
-    )
+    limite = _detectar_limite(pergunta_original)
 
     if limite is None:
         limite = len(categorias)
@@ -812,34 +801,19 @@ def _resposta_top_categorias(
         categorias,
         start=1
     ):
-
-        nome = categoria.get(
-            "categoria",
-            "Não informado"
-        )
-
-        quantidade = categoria.get(
-            "quantidade",
-            0
-        )
-
-        percentual = categoria.get(
-            "percentual"
-        )
+        nome = categoria.get("categoria", "Não informado")
+        quantidade = categoria.get("quantidade", 0)
+        percentual = categoria.get("percentual")
 
         if percentual is not None:
-
             partes.append(
                 f"{indice}. {nome}: "
                 f"{quantidade} "
                 f"({_numero_pt(percentual)}%)."
             )
-
         else:
-
             partes.append(
-                f"{indice}. {nome}: "
-                f"{quantidade}."
+                f"{indice}. {nome}: {quantidade}."
             )
 
     return " ".join(partes)
@@ -854,19 +828,9 @@ def _resposta_comentarios_por_categoria(resultado):
     if "erro" in resultado:
         return resultado["erro"]
 
-    categoria = resultado.get(
-        "categoria"
-    )
-
-    total = resultado.get(
-        "total_na_categoria",
-        0
-    )
-
-    exemplos = resultado.get(
-        "exemplos",
-        []
-    )
+    categoria = resultado.get("categoria")
+    total = resultado.get("total_na_categoria", 0)
+    exemplos = resultado.get("exemplos", [])
 
     if not exemplos:
         return (
@@ -881,10 +845,7 @@ def _resposta_comentarios_por_categoria(resultado):
     ]
 
     for exemplo in exemplos:
-
-        partes.append(
-            f"- {exemplo}"
-        )
+        partes.append(f"- {exemplo}")
 
     return " ".join(partes)
 
@@ -916,24 +877,16 @@ def _gerar_resposta_direta(
 ):
 
     if nome_ferramenta == "calcular_metricas":
-        return _resposta_calcular_metricas(
-            resultado
-        )
+        return _resposta_calcular_metricas(resultado)
 
     if nome_ferramenta == "comparar_ciclos":
-        return _resposta_comparar_ciclos(
-            resultado
-        )
+        return _resposta_comparar_ciclos(resultado)
 
     if nome_ferramenta == "cruzar_variaveis":
-        return _resposta_cruzamento(
-            resultado
-        )
+        return _resposta_cruzamento(resultado)
 
     if nome_ferramenta == "correlacionar_numericas":
-        return _resposta_correlacao(
-            resultado
-        )
+        return _resposta_correlacao(resultado)
 
     if nome_ferramenta == "top_categorias_problemas":
         return _resposta_top_categorias(
@@ -942,9 +895,7 @@ def _gerar_resposta_direta(
         )
 
     if nome_ferramenta == "comentarios_por_categoria":
-        return _resposta_comentarios_por_categoria(
-            resultado
-        )
+        return _resposta_comentarios_por_categoria(resultado)
 
     return None
 
@@ -955,9 +906,7 @@ def _gerar_resposta_direta(
 
 def perguntar(pergunta):
 
-    pergunta = (
-        pergunta or ""
-    ).strip()
+    pergunta = (pergunta or "").strip()
 
     if not pergunta:
         return {
@@ -974,7 +923,6 @@ def perguntar(pergunta):
     )
 
     if tipo_fora_escopo == "fora_escopo":
-
         return {
             "resposta": resposta_fora_escopo,
             "ferramentas_utilizadas": []
@@ -987,6 +935,26 @@ def perguntar(pergunta):
     nome_direto, argumentos_diretos = (
         _detectar_intencao_direta(pergunta)
     )
+
+    # ========================================================
+    # 2.1. RESPOSTA DIRETA SOBRE AS CAPACIDADES DO AGENTE
+    # ========================================================
+
+    if nome_direto == "resposta_capacidades":
+        return {
+            "resposta": (
+                "Posso analisar pesquisas de satisfação dos alunos, "
+                "consultar métricas gerais, comparar ciclos, "
+                "identificar problemas recorrentes, cruzar variáveis "
+                "e analisar correlações entre indicadores. "
+                "Faça uma pergunta sobre os dados para começar."
+            ),
+            "ferramentas_utilizadas": []
+        }
+
+    # ========================================================
+    # 2.2. EXECUÇÃO DIRETA DE FERRAMENTAS
+    # ========================================================
 
     if nome_direto:
 
@@ -1006,9 +974,7 @@ def perguntar(pergunta):
 
         tempo = time.time() - inicio
 
-        print(
-            f"TEMPO FERRAMENTA: {tempo:.2f}s"
-        )
+        print(f"TEMPO FERRAMENTA: {tempo:.2f}s")
 
         resposta_direta = _gerar_resposta_direta(
             nome_direto,
@@ -1017,12 +983,9 @@ def perguntar(pergunta):
         )
 
         if resposta_direta:
-
             return {
                 "resposta": resposta_direta,
-                "ferramentas_utilizadas": [
-                    nome_direto
-                ]
+                "ferramentas_utilizadas": [nome_direto]
             }
 
     # ========================================================
@@ -1046,15 +1009,8 @@ def perguntar(pergunta):
         max_tokens=MAX_TOKENS_FERRAMENTA,
     )
 
-    mensagem_modelo = resposta_modelo.get(
-        "message",
-        {}
-    )
-
-    chamadas = mensagem_modelo.get(
-        "tool_calls",
-        []
-    )
+    mensagem_modelo = resposta_modelo.get("message", {})
+    chamadas = mensagem_modelo.get("tool_calls", [])
 
     ferramentas_utilizadas = []
 
@@ -1064,16 +1020,9 @@ def perguntar(pergunta):
 
     if not chamadas:
 
-        conteudo = (
-            mensagem_modelo.get(
-                "content",
-                ""
-            )
-            .strip()
-        )
+        conteudo = mensagem_modelo.get("content", "").strip()
 
         if not conteudo:
-
             conteudo = (
                 "Não consegui gerar uma resposta "
                 "para essa pergunta."
@@ -1081,8 +1030,7 @@ def perguntar(pergunta):
 
         return {
             "resposta": conteudo,
-            "ferramentas_utilizadas":
-                ferramentas_utilizadas,
+            "ferramentas_utilizadas": ferramentas_utilizadas,
         }
 
     # ========================================================
@@ -1093,51 +1041,28 @@ def perguntar(pergunta):
 
     for chamada in chamadas:
 
-        funcao = chamada.get(
-            "function",
-            {}
-        )
+        funcao = chamada.get("function", {})
+        nome = funcao.get("name")
+        argumentos = funcao.get("arguments", {})
 
-        nome = funcao.get(
-            "name"
-        )
-
-        argumentos = funcao.get(
-            "arguments",
-            {}
-        )
-
-        if isinstance(
-            argumentos,
-            str
-        ):
-
+        if isinstance(argumentos, str):
             try:
-
-                argumentos = json.loads(
-                    argumentos
-                )
-
+                argumentos = json.loads(argumentos)
             except json.JSONDecodeError:
-
                 argumentos = {}
 
-        ferramentas_utilizadas.append(
-            nome
-        )
+        ferramentas_utilizadas.append(nome)
 
         resultado = _executar_ferramenta(
             nome,
             argumentos
         )
 
-        resultados_ferramentas.append(
-            {
-                "nome": nome,
-                "argumentos": argumentos,
-                "resultado": resultado,
-            }
-        )
+        resultados_ferramentas.append({
+            "nome": nome,
+            "argumentos": argumentos,
+            "resultado": resultado,
+        })
 
     # ========================================================
     # 6. RESPOSTA DIRETA EM PYTHON
@@ -1146,9 +1071,7 @@ def perguntar(pergunta):
     if len(resultados_ferramentas) == 1:
 
         item = resultados_ferramentas[0]
-
         nome = item["nome"]
-
         resultado = item["resultado"]
 
         if _resultado_estruturado(nome):
@@ -1160,7 +1083,6 @@ def perguntar(pergunta):
             )
 
             if resposta_direta:
-
                 return {
                     "resposta": resposta_direta,
                     "ferramentas_utilizadas":
@@ -1178,19 +1100,15 @@ def perguntar(pergunta):
     resultados_compactados = []
 
     for item in resultados_ferramentas:
-
-        resultados_compactados.append(
-            {
-                "ferramenta": item["nome"],
-                "resultado": item["resultado"],
-            }
-        )
+        resultados_compactados.append({
+            "ferramenta": item["nome"],
+            "resultado": item["resultado"],
+        })
 
     mensagens_finais = [
         {
             "role": "system",
-            "content":
-                prompts.FINAL_SYSTEM_PROMPT,
+            "content": prompts.FINAL_SYSTEM_PROMPT,
         },
         {
             "role": "user",
@@ -1224,7 +1142,6 @@ def perguntar(pergunta):
     )
 
     if not conteudo_final:
-
         conteudo_final = (
             "Os dados foram consultados, mas "
             "não foi possível gerar uma resposta textual."
@@ -1232,6 +1149,5 @@ def perguntar(pergunta):
 
     return {
         "resposta": conteudo_final,
-        "ferramentas_utilizadas":
-            ferramentas_utilizadas,
+        "ferramentas_utilizadas": ferramentas_utilizadas,
     }
